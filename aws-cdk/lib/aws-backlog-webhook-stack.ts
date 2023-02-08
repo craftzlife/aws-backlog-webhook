@@ -8,8 +8,14 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
     super(scope, id, props);
 
     /** Create an IAM role for API Gateway to send messages to SQS */
-    const webhookRole = new cdk.aws_iam.Role(this, 'IAMRole', {
-      assumedBy: new cdk.aws_iam.ServicePrincipal('apigateway.amazonaws.com'),
+    const iamRole = new cdk.aws_iam.Role(this, 'IAMRole', {
+      assumedBy: new cdk.aws_iam.CompositePrincipal(
+        new cdk.aws_iam.ServicePrincipal('apigateway.amazonaws.com'),
+        new cdk.aws_iam.ServicePrincipal('lambda.amazonaws.com')
+      ),
+      managedPolicies: [
+        cdk.aws_iam.ManagedPolicy.fromManagedPolicyArn(this, 'AWSLambdaBasicExecutionRole', 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
+      ]
     });
 
     /** Create SQS Queue */
@@ -18,7 +24,7 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
       fifo: true, // FIFO must be enabled to preserve the order that webhook handler will clone the source code
       contentBasedDeduplication: true,
       deduplicationScope: cdk.aws_sqs.DeduplicationScope.MESSAGE_GROUP,
-      retentionPeriod: cdk.Duration.days(7),
+      retentionPeriod: cdk.Duration.days(3),
       deadLetterQueue: {
         maxReceiveCount: 3,
         queue: new cdk.aws_sqs.Queue(this, 'DeadLetterQueue', {
@@ -47,15 +53,15 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
     });
 
     /** Grant permissions to send messages to the queue */
-    queue.grantSendMessages(webhookRole);
+    queue.grantSendMessages(iamRole);
 
-    /** Create an integration to send messages to SQS */
+    /** Create an api gateway integration to send messages to SQS */
     const sqsIntegration = new cdk.aws_apigateway.AwsIntegration({
       service: 'sqs',
       path: `${cdk.Stack.of(this).account}/${queue.queueName}`,
       integrationHttpMethod: 'POST',
       options: {
-        credentialsRole: webhookRole,
+        credentialsRole: iamRole,
         passthroughBehavior: cdk.aws_apigateway.PassthroughBehavior.NEVER,
         requestParameters: {
           'integration.request.header.Content-Type': "'application/x-www-form-urlencoded'"
@@ -63,14 +69,15 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
         requestTemplates: {
           'application/json': [
             '#set($body = $util.parseJson($input.body))',
-            '#set($projectKey = $body.project.projectKey)',
-            '#set($repositoryName = $body.content.repository.name)',
-            '#set($gitRef = $body.content.ref)',
-            '#set($concat = "/")',
+            '#set($ProjectKey = $body.project.projectKey)',
+            '#set($EventType = $body.type)',
+            '#set($RepositoryName = $body.content.repository.name)',
+            '#set($GitRef = $body.content.ref)',
+            '#set($Concat = "/")',
             'Action=SendMessage',
-            'MessageGroupId=$projectKey$concat$repositoryName$concat$gitRef',
+            'MessageGroupId=$ProjectKey$Concat$RepositoryName$Concat$GitRef',
             'MessageBody=$util.urlEncode($input.body)'
-          ].join('&')
+          ].join(' & ')
         },
         integrationResponses: [
           {
@@ -98,8 +105,8 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
     });
 
     /** Add a resource and method to the API */
-    const webhook = restApi.root
-    webhook.addMethod('POST', sqsIntegration, {
+    const backlogWebhook = restApi.root.addResource('backlog-webhook');
+    backlogWebhook.addMethod('POST', sqsIntegration, {
       methodResponses: [
         {
           statusCode: '200',
@@ -135,6 +142,7 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
         }
       ]
     });
+    bucket.grantReadWrite(iamRole);
 
     /** Add DynamoDb table for Lambda to store webhook payload, S3 source version */
     const sourceInfoTable = new cdk.aws_dynamodb.Table(this, 'SourceInfo', {
@@ -142,21 +150,84 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
         name: 'S3_VersionId',
         type: cdk.aws_dynamodb.AttributeType.STRING
       },
+      timeToLiveAttribute: 'TTL',
       billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: 'TTL'
     });
+    sourceInfoTable.grantWriteData(iamRole);
+
+    /** SSH SecretKey for pulling source code from Backlog */
+    const sshSecret = new cdk.aws_secretsmanager.Secret(this, 'SSHSecretKey', {
+      // secretName: 'backlog-ssh-secret-key',
+      secretObjectValue: {
+        'id_ed25519': cdk.SecretValue.unsafePlainText('Do not store Key value here, manually edit it via AWS Console - Secret Manager'),
+        'id_ed25519.pub': cdk.SecretValue.unsafePlainText('Do not store Key value here, manually edit it via AWS Console - Secret Manager')
+      }
+    });
+    sshSecret.grantRead(iamRole);
 
     /** Create a Lambda function from ../../webhook-handler using DockerImageFunction */
-    const lambdaHandler = new cdk.aws_lambda.DockerImageFunction(this, 'LambdaHandler', {
-      code: cdk.aws_lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../../webhook-handler')),
+    // const lambdaHandler = new cdk.aws_lambda.DockerImageFunction(this, 'LambdaHandler', {
+    //   code: cdk.aws_lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../../webhook-handler')),
+    //   role: iamRole,
+    //   description: 'From webhook payload, retrieve repository information, clone source and archive it to S3',
+    //   timeout: cdk.Duration.seconds(120),
+    //   tracing: cdk.aws_lambda.Tracing.ACTIVE,
+    //   architecture: cdk.aws_lambda.Architecture.ARM_64,
+    //   memorySize: 256,
+    //   environment: {
+    //     'S3_BUCKET': bucket.bucketName,
+    //     'DYNAMODB_TABLE': sourceInfoTable.tableName,
+    //     'BACKLOG_SSH_ADDRESS': 'oxalislabs@oxalislabs.git.backlog.com',
+    //     'BACKLOG_SSH_SECRET_NAME': sshSecret.secretName
+    //   },
+    //   retryAttempts: 0,
+    //   logGroup: new cdk.aws_logs.LogGroup(this, 'LambdaHandlerLogGroup', {
+    //     logGroupName: '/aws/lambda/webhook-handler',
+    //     retention: cdk.aws_logs.RetentionDays.ONE_MONTH,
+    //     removalPolicy: cdk.RemovalPolicy.DESTROY,
+    //     logGroupClass: cdk.aws_logs.LogGroupClass.STANDARD
+    //   })
+    // });
+
+    const lambdaHandler = new cdk.aws_lambda.Function(this, 'LambdaHandlerNodeJs', {
+      runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+      layers: [
+        cdk.aws_lambda.LayerVersion.fromLayerVersionArn(this, 'GitLayer', `arn:aws:lambda:${this.region}:553035198032:layer:git-lambda2:8`),
+      ],
+      handler: 'dist/src/lambdaHandler.handler',
+      code: cdk.aws_lambda.Code.fromAsset(path.join(__dirname, '../../webhook-handler'), {
+        bundling: {
+          image: cdk.aws_lambda.Runtime.NODEJS_18_X.bundlingImage,
+          network: 'host',
+          user: 'root',
+          command: [
+            'bash', '-c', [
+              'npm install --no-audit --no-fund',
+              'npm run build',
+              'npm prune --production',
+              'rm -rf /asset-output/*',
+              'cp -r dist node_modules s3-archive-configs /asset-output',
+            ].join(' && ')
+          ],
+          bundlingFileAccess: cdk.BundlingFileAccess.VOLUME_COPY,
+          outputType: cdk.BundlingOutput.NOT_ARCHIVED,
+        }
+      }),
+      role: iamRole,
       description: 'From webhook payload, retrieve repository information, clone source and archive it to S3',
       timeout: cdk.Duration.seconds(120),
       tracing: cdk.aws_lambda.Tracing.ACTIVE,
-      architecture: cdk.aws_lambda.Architecture.ARM_64,
+      architecture: cdk.aws_lambda.Architecture.X86_64,
       memorySize: 256,
       environment: {
-        'S3_BUCKET': bucket.bucketName,
-        'DYNAMODB_TABLE': sourceInfoTable.tableName
+        // 'S3_BUCKET': bucket.bucketName,
+        // 'DYNAMODB_TABLE': sourceInfoTable.tableName,
+        // 'BACKLOG_SSH_ADDRESS': 'oxalislabs@oxalislabs.git.backlog.com',
+        // 'BACKLOG_SSH_SECRET_NAME': sshSecret.secretName
+        'DYNAMODB_TABLE_NAME': sourceInfoTable.tableName,
+        'S3_BUCKET_NAME': bucket.bucketName,
+        'BACKLOG_GIT_SERVER_URL': 'oxalislabs@oxalislabs.git.backlog.com',
+        'SECRET_MANAGER_SSH_SECRET_NAME': sshSecret.secretName
       },
       retryAttempts: 0,
       logGroup: new cdk.aws_logs.LogGroup(this, 'LambdaHandlerLogGroup', {
@@ -166,11 +237,11 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
         logGroupClass: cdk.aws_logs.LogGroupClass.STANDARD
       })
     });
-    
+
     lambdaHandler.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(queue, {
       batchSize: 1,
       reportBatchItemFailures: true,
-      enabled:true
+      enabled: true
     }));
     queue.grantConsumeMessages(lambdaHandler);
   }

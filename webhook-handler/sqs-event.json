@@ -1,0 +1,24 @@
+{
+  "Records": [
+    {
+      "messageId": "aed4726d-c8f6-4c93-b980-01fc9e4fe758",
+      "receiptHandle": "AQEBryWZr6gio7WvRmQ7z5hDWQOMwy9KzVfzg9N8USxWHVaxrLxF83L4rQ2ej5a2f4622A8WsZudyCA0VTPrpgHfraWid0dmAfhQo+l4odtFaWJxVsWqCVgMbkuyygKyzTz4oEpRK6tPfboWJIgFCQXo+ltQpRlHzAWUIPuNM7dxKK2Z6Q6Em6kMZQ+QtMqb1ryb5ECMJwI7nsW2nme5LetR4mK22GP/m+JR/5I5AOucMuim1APB9PS4oFbHw2F2tNhGf5Ke1LdGjAyI1BrjMh308O0cGhMKHkxWWJ7cvu5Q6AtbgO+R2RzJZEZypTTXq37ouPTNI2siiywlGvIoU1DJXg==",
+      "body": "{\"id\": 27467489,\"project\": {\"id\": 145504,\"projectKey\": \"WEBHOOK\",\"name\": \"webhook\",\"chartEnabled\": false,\"subtaskingEnabled\": false,\"projectLeaderCanEditProjectLeader\": false,\"useWikiTreeView\": true,\"textFormattingRule\": \"markdown\",\"archived\": false},\"type\": 12,\"content\": {\"change_type\": \"create\",\"ref\": \"refs/heads/develop\",\"repository\": {\"id\": 21530,\"name\": \"backlog-webhook\",\"description\": null},\"revision_count\": 0,\"revision_type\": \"commit\",\"revisions\": []},\"notifications\": [],\"createdUser\": {\"id\": 818761,\"userId\": null,\"name\": \"Le Khai Hoan\",\"roleType\": 1,\"lang\": \"en\",\"mailAddress\": null,\"nulabAccount\": {\"nulabId\": \"NhxIMpR73oOUTB6asmmCYQMxXEGqrV68Uuuybaxf2TtLqyHN0T\",\"name\": \"Le Khai Hoan\",\"uniqueId\": \"khaihoan2711\"}},\"created\": \"2025-02-08T02:08:28Z\"}",
+      "attributes": {
+        "ApproximateReceiveCount": "1",
+        "AWSTraceHeader": "Root=1-67658b16-3ee556410dce83ad7c0d87ba;Parent=72fb965715faab79;Sampled=1",
+        "SentTimestamp": "1734707990920",
+        "SequenceNumber": "37337573393094623232",
+        "MessageGroupId": "CKH/Parts/refs/heads/develop",
+        "SenderId": "AROAW5IUY4J3H7HYZY3JH:BackplaneAssumeRoleSession",
+        "MessageDeduplicationId": "ceab20cb432ece4ebbcd26fd8252f50247634112181a75b0a55c411ac8854b68",
+        "ApproximateFirstReceiveTimestamp": "1734707990920"
+      },
+      "messageAttributes": {},
+      "md5OfBody": "8f1d8f40b46c39c00feea7365c481bda",
+      "eventSource": "aws:sqs",
+      "eventSourceARN": "arn:aws:sqs:ap-southeast-1:475174330998:BacklogWebhook-SQSQueue7674CD17-6OkbEEQaF2cn.fifo",
+      "awsRegion": "ap-southeast-1"
+    }
+  ]
+}

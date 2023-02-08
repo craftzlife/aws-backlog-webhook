@@ -1,0 +1,9 @@
+{
+    "git_branch_pushed_trigger": [
+        "master",
+        "main",
+        "develop",
+        "staging"
+    ],
+    "archive_by_subfolders": []
+}

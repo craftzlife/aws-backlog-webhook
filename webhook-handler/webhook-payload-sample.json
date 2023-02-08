@@ -1,0 +1,43 @@
+{
+  "id": 228735497,
+  "project": {
+      "id": 123456,
+      "projectKey": "SAMPLE",
+      "name": "Sample Project",
+      "chartEnabled": true,
+      "subtaskingEnabled": true,
+      "projectLeaderCanEditProjectLeader": false,
+      "useWikiTreeView": true,
+      "textFormattingRule": "backlog",
+      "archived": false
+  },
+  "type": 12,
+  "content": {
+      "change_type": "update",
+      "ref": "refs/heads/develop",
+      "repository": {
+          "id": 87256,
+          "name": "FrontEnd",
+          "description": null
+      },
+      "revision_count": 1,
+      "revision_type": "commit",
+      "revisions": [
+          {
+              "rev": "814abc04ff3c20a8d1fa97f651d790f1814abc04903cf568",
+              "comment": "keyboard event for dropdown"
+          }
+      ]
+  },
+  "notifications": [],
+  "createdUser": {
+      "id": 654321,
+      "userId": null,
+      "name": "Le Khai Hoan",
+      "roleType": 2,
+      "lang": null,
+      "mailAddress": null,
+      "nulabAccount": null
+  },
+  "created": "2022-06-09T03:44:19Z"
+}
