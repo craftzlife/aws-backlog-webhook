@@ -1,5 +1,5 @@
 # aws-backlog-webhook
-## Receive git events from Nulab's Backlog, then clone source to S3 Bucket for CI/CD purposes
+## Receive git events from Nulab's Backlog, then clone source to S3 Bucketß
 
 # Welcome to your CDK TypeScript project
 This is a blank project for CDK development with TypeScript.
