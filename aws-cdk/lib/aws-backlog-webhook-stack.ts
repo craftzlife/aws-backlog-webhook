@@ -6,6 +6,11 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // Create an IAM role for API Gateway to send messages to SQS
+    const webhookRole = new cdk.aws_iam.Role(this, 'IAMRole', {
+      assumedBy: new cdk.aws_iam.ServicePrincipal('apigateway.amazonaws.com'),
+    });
+
     // Create SQS Queue
     const queue = new cdk.aws_sqs.Queue(this, 'SQSQueue', {
       visibilityTimeout: cdk.Duration.seconds(300),
@@ -39,13 +44,9 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
         metricsEnabled: true
       }
     });
-    // Create an IAM role for API Gateway to send messages to SQS
-    const apiGatewayRole = new cdk.aws_iam.Role(this, 'ApiGatewayRole', {
-      assumedBy: new cdk.aws_iam.ServicePrincipal('apigateway.amazonaws.com'),
-    });
 
     // Grant permissions to send messages to the queue
-    queue.grantSendMessages(apiGatewayRole);
+    queue.grantSendMessages(webhookRole);
 
     // Create an integration to send messages to SQS
     const sqsIntegration = new cdk.aws_apigateway.AwsIntegration({
@@ -53,7 +54,7 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
       path: `${cdk.Stack.of(this).account}/${queue.queueName}`,
       integrationHttpMethod: 'POST',
       options: {
-        credentialsRole: apiGatewayRole,
+        credentialsRole: webhookRole,
         passthroughBehavior: cdk.aws_apigateway.PassthroughBehavior.NEVER,
         requestParameters: {
           'integration.request.header.Content-Type': "'application/x-www-form-urlencoded'"
