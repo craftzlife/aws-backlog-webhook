@@ -120,5 +120,29 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
         }
       ]
     });
+    
+    // Add S3 Bucket for Lambda to archive source code
+    const bucket = new cdk.aws_s3.Bucket(this, 'SourceArchive', {
+      versioned: true,
+      blockPublicAccess: cdk.aws_s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: cdk.aws_s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      lifecycleRules: [
+        {
+          enabled: true,
+          expiration: cdk.Duration.days(14)
+        }
+      ]
+    });
+
+    // Add DynamoDb table for Lambda to store webhook payload, S3 source version
+    const sourceInfoTable = new cdk.aws_dynamodb.Table(this, 'SourceInfo', {
+      partitionKey: {
+        name: 'S3_VersionId',
+        type: cdk.aws_dynamodb.AttributeType.STRING
+      },
+      billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'TTL'
+    });
   }
 }
