@@ -147,15 +147,31 @@ export class AwsBacklogWebhookStack extends cdk.Stack {
     });
 
     /** Create a Lambda function from ../../webhook-handler using DockerImageFunction */
-    const handler = new cdk.aws_lambda.DockerImageFunction(this, 'LambdaHandler', {
+    const lambdaHandler = new cdk.aws_lambda.DockerImageFunction(this, 'LambdaHandler', {
       code: cdk.aws_lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../../webhook-handler')),
       description: 'From webhook payload, retrieve repository information, clone source and archive it to S3',
       timeout: cdk.Duration.seconds(120),
       tracing: cdk.aws_lambda.Tracing.ACTIVE,
+      architecture: cdk.aws_lambda.Architecture.ARM_64,
+      memorySize: 256,
       environment: {
         'S3_BUCKET': bucket.bucketName,
         'DYNAMODB_TABLE': sourceInfoTable.tableName
-      }
+      },
+      retryAttempts: 0,
+      logGroup: new cdk.aws_logs.LogGroup(this, 'LambdaHandlerLogGroup', {
+        logGroupName: '/aws/lambda/webhook-handler',
+        retention: cdk.aws_logs.RetentionDays.ONE_MONTH,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        logGroupClass: cdk.aws_logs.LogGroupClass.STANDARD
+      })
     });
+    
+    lambdaHandler.addEventSource(new cdk.aws_lambda_event_sources.SqsEventSource(queue, {
+      batchSize: 1,
+      reportBatchItemFailures: true,
+      enabled:true
+    }));
+    queue.grantConsumeMessages(lambdaHandler);
   }
 }
