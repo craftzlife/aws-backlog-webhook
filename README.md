@@ -129,7 +129,3 @@ npm run start
 2. Create a feature branch
 3. Make changes and test
 4. Submit a pull request
-
-## License
-
-This project is licensed under the ISC License.
